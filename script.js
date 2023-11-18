@@ -1,72 +1,81 @@
-
-class Sudoku {
-    constructor(width, height, board_string) {
-        this.width = width
-        this.height = height
-        this.board = board_string.split('').map(c => {
-            if (c === 'x')
-                return null
-            else
-                return parseInt(c);
-        })
+function resetCells(sudoku) {
+    for (let i = 0; i < sudoku.width * sudoku.height; ++i)
+    {
+        if(sudoku.board[i] == null)
+            $(`#${i}`).val('');
     }
 }
 
-const get_board_url = 'https://6550e0cc7d203ab6626e476a.mockapi.io/api/v1/SudokuBoard/1?fbclid=IwAR0Zs1QuyeuDFGTR5S-EaWCMw7mV3ExT6KTWMUvAF-tnt0xoIQqX6m3f9Ig'
+function showMessage(message) {
+    const elem = $('#err-msg');
+  
+    // Update content and make the element visible
+    elem.text(message).fadeIn();
+  
+    // Set a timeout to hide the element after 3 seconds
+    setTimeout(() => {
+        elem.fadeOut();
+    }, 3000);
+  }
 
-var sudoku
+$(document).ready(function() {
+    // setup
+    let request = $.ajax({
+        url: SUDOKU_API_URL,
+        method: 'GET',
+        dataType: 'json',
+        success: function(data) {
 
-const requestOptions = {
-    method: 'GET',
-    headers: {
-        'Content-Type': 'application/json'
-    },
-    data: null
-}
+            sudoku = new Sudoku(data.width, data.height, data.board)
 
-function validateInputCell(id)
-{
-    const elem = document.getElementById(`${id}`)
-    const input = elem.innerText
+            $('#res').click(function() {
+                sudoku.reset()
+                resetCells(sudoku)
+            })
 
-    if (input.length > 1)
-        elem.innerText = input[0]
+            $('#sub').click(function() {
 
-    
-    if (!input.match(/\d/))
-        elem.innerText = ''
-}
+                if(sudoku.solved())
+                {
+                    showMessage("You solved it!")
+                }
+                else 
+                {
+                    if(sudoku.board.some(x => x == null))
+                    {
+                        showMessage('You left some tiles empty') 
+                    }
+                    else
+                    {
+                        showMessage('Not a valid solution, try again!')
+                    }
+                }
+            })
 
-fetch(get_board_url, requestOptions)
-    .then(response =>
-    {
-        if (!response.ok)    
-            throw new Error("Could not fetch board.")
-    
-        return response.json()
-    })
-    .then(data =>
-    {
-        requestOptions.data = data
-        console.log('API response: ', requestOptions.data)
+            // Set grid template style
+            $('#board').css({
+                'grid-template-columns': `repeat(${sudoku.width}, var(--cell-size))`,
+                'grid-template-rows': `repeat(${sudoku.height}, var(--cell-size))`
+            })
 
-        sudoku = new Sudoku(
-            requestOptions.data.width,
-            requestOptions.data.height,
-            requestOptions.data.board)
+            // Initialize board elements
+            for (let i = 0; i < sudoku.width * sudoku.height; ++i)
+            {
+                var value = sudoku.board[i]
+                var element = value == null
+                    ? `<input id="${i}" class="input-cell" type="text" maxlength="1" oninput="this.value=this.value.replace(/[^0-9]/g,'');">`
+                    : `<div id="${i}" class="locked-cell">${value}</div>`
 
-        for (let i = 0; i < sudoku.width * sudoku.height; ++i)
-        {
-            var value = sudoku.board[i]
-            var id_attrib = `id="${i}"`
-            var class_attrib = `class="${value == null ? "input-cell" : "locked-cell"}"`
-            var edit_attrib = value == null ? 'contenteditable="true"' : ''
-            var oninput_attrib = `oninput="validateInputCell(${i})"`
-            var onclick_attrib = `onclick=`
-            $('#board').append(`<div ${id_attrib} ${class_attrib} ${edit_attrib} ${oninput_attrib} ${onclick_attrib}>${value ?? ''}<div>`)
+                $('#board').append(element)
+
+                $(`#${i}`).on('blur', function() {
+                    const value = $(this).val()
+                    sudoku.board[i] = value == '' ? null : parseInt(value)
+                })
+            }
+        },
+        error: function(_, status, error) {
+            console.error('API error:', status, error)
         }
     })
-    .catch(error => {
-        console.error('Error fetching data:', error);
-    })
-
+})
